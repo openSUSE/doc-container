@@ -11,12 +11,12 @@ ARG URL=https://download.opensuse.org/repositories
 
 # Define labels according to https://en.opensuse.org/Building_derived_containers
 # labelprefix=org.opensuse.daps-toolchain
-PREFIXEDLABEL org.opencontainers.image.title="DAPS container for XML validation"
-PREFIXEDLABEL org.opencontainers.image.description="Container daps-toolchain %PKG_VERSION%"
-PREFIXEDLABEL org.opensuse.reference="registry.opensuse.org/documentation/containers/containers/opensuse-daps-toolchain:latest"
-PREFIXEDLABEL org.openbuildservice.disturl="%DISTURL%"
-PREFIXEDLABEL org.opencontainers.image.created="%BUILDTIME%"
-PREFIXEDLABEL org.opencontainers.image.authors="SUSE Documentation Team <doc-team@suse.com>"
+LABEL org.opencontainers.image.title="DAPS container for XML validation"
+LABEL org.opencontainers.image.description="Container daps-toolchain %PKG_VERSION%"
+LABEL org.opensuse.reference="registry.opensuse.org/documentation/containers/containers/opensuse-daps-toolchain:latest"
+LABEL org.openbuildservice.disturl="%DISTURL%"
+LABEL org.opencontainers.image.created="%BUILDTIME%"
+LABEL org.opencontainers.image.authors="SUSE Documentation Team <doc-team@suse.com>"
 
 
 # Repositories from the project config are used by default.
