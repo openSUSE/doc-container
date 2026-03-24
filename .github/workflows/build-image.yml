@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: opensuse/doc-container
   PYTHON_VERSION: "3.12"
 
 jobs:
