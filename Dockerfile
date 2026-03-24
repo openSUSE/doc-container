@@ -1,16 +1,14 @@
 #!BuildTag: opensuse-daps-toolchain
 #!BuildTag: opensuse-daps-toolchain:%RELEASE%
 
-# For ideas:
-# https://build.opensuse.org/package/show/home:darix:apps/container-gitlab-runner
 ARG RELEASE=15.6
 FROM opensuse/leap:$RELEASE
 
+# Re-declare ARG after FROM
+ARG RELEASE=15.6
 ARG URL=https://download.opensuse.org/repositories
+ARG PYTHON_VERSION=312
 
-
-# Define labels according to https://en.opensuse.org/Building_derived_containers
-# labelprefix=org.opensuse.daps-toolchain
 LABEL org.opencontainers.image.title="DAPS container for XML validation"
 LABEL org.opencontainers.image.description="Container daps-toolchain %PKG_VERSION%"
 LABEL org.opensuse.reference="registry.opensuse.org/documentation/containers/containers/opensuse-daps-toolchain:latest"
@@ -18,45 +16,27 @@ LABEL org.openbuildservice.disturl="%DISTURL%"
 LABEL org.opencontainers.image.created="%BUILDTIME%"
 LABEL org.opencontainers.image.authors="SUSE Documentation Team <doc-team@suse.com>"
 
-
-# Repositories from the project config are used by default.
-#
-# Put additional files into container
 COPY rm-packages \
      rm-files \
        /root/
 
-# cleanup the previously existing .repo files and add those that the
-# distribution itself uses, ensuring a correct repository configuration
+# Cleanup and setup repos
 RUN zypper --non-interactive in live-add-yast-repos && \
     rm /etc/zypp/repos.d/repo*repo && \
     add-yast-repos && zypper -n ref && \
     zypper --non-interactive rm live-add-yast-repos
 
-# zypper ar $URL/Java:/packages/SLE_15_SP2/ "OBS:Java";
-# zypper ar $URL/Documentation:Tools/$releasever "DocTools";
-# zypper ar $URL/M17N:/fonts/'$releasever'/ "M17N:fonts"; \
+# Add repositories. 
+# Using the python:backports repository which is the standard for Leap 15.x modern python
 RUN \
-  zypper ar $URL/Documentation:/Containers/openSUSE_Leap_'$releasever'/ "DocCont-Leap"; \
-  zypper ar $URL/Documentation:/Tools/'$releasever' "DocTools"; \
+  zypper ar ${URL}/Documentation:/Containers/openSUSE_Leap_${RELEASE}/ DocCont-Leap && \
+  zypper ar ${URL}/Documentation:/Tools/${RELEASE}/ DocTools && \
+  zypper ar ${URL}/devel:/languages:/python:/backports/openSUSE_Leap_${RELEASE}/ Python-Backports && \
   zypper --gpg-auto-import-keys ref
 
+RUN zypper --non-interactive install -y sgml-skel
 
-# Install packages
-#
-# sgml-skel needs to be installed first, as it contains the
-# `update-xml-catalogs` script which is needed during package build
-#
-# this layer adds the bulk of items to the container: we try to do
-# additions/deletions all at once to avoid layering deletions on top of
-# additions which would result in a container that is larger, not smaller
-RUN \
-  zypper --non-interactive install -y sgml-skel
-
-# Explicitly install the fonts we need from our own repository
 RUN zypper --non-interactive install --no-recommends --no-confirm \
-    # we need to be more explict as suse-xsl-stylesheets changed dependency
-    # from requires -> recommends
     google-noto-sans-jp-regular-fonts google-noto-sans-jp-bold-fonts \
     google-noto-sans-sc-regular-fonts google-noto-sans-sc-bold-fonts \
     google-noto-sans-kr-regular-fonts google-noto-sans-kr-bold-fonts \
@@ -64,6 +44,7 @@ RUN zypper --non-interactive install --no-recommends --no-confirm \
     arabic-amiri-fonts \
     sil-charis-fonts gnu-free-fonts google-opensans-fonts dejavu-fonts google-poppins-fonts
 
+# Toolchain and Python installation
 RUN \
   zypper --non-interactive install --no-recommends --no-confirm \
             vim-small \
@@ -78,13 +59,16 @@ RUN \
             ruby2.5-rubygem-asciidoctor \
             suse-xsl-stylesheets \
             suse-xsl-stylesheets-sbp \
-            python3-base \
+            python${PYTHON_VERSION} \
+            python${PYTHON_VERSION}-pip \
             tar \
             w3m \
             jq \
             rsvg-convert \
             openssh-clients \
-	    suse-fonts ; \
+            suse-fonts ; \
+  # Fix symlink for python3
+  ln -sf /usr/bin/python3.12 /usr/bin/python3; \
   zypper clean --all; \
   xargs rpm --erase --nodeps < /root/rm-packages; \
   xargs rm -rf < /root/rm-files; \
@@ -96,4 +80,4 @@ RUN \
 
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
-ENV TERM xterm-256color
+ENV TERM=xterm-256color
