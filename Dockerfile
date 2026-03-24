@@ -21,6 +21,14 @@ COPY rm-packages \
        /root/
 
 # Cleanup and setup repos
+# Install packages
+#
+# sgml-skel needs to be installed first, as it contains the
+# `update-xml-catalogs` script which is needed during package build
+#
+# this layer adds the bulk of items to the container: we try to do
+# additions/deletions all at once to avoid layering deletions on top of
+# additions which would result in a container that is larger, not smaller
 RUN zypper --non-interactive in live-add-yast-repos && \
     rm /etc/zypp/repos.d/repo*repo && \
     add-yast-repos && zypper -n ref && \
@@ -35,7 +43,8 @@ RUN \
   zypper --gpg-auto-import-keys ref
 
 RUN zypper --non-interactive install -y sgml-skel
-
+# we need to be more explict as suse-xsl-stylesheets changed dependency
+# from requires -> recommends
 RUN zypper --non-interactive install --no-recommends --no-confirm \
     google-noto-sans-jp-regular-fonts google-noto-sans-jp-bold-fonts \
     google-noto-sans-sc-regular-fonts google-noto-sans-sc-bold-fonts \

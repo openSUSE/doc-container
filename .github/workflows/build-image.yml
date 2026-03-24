@@ -10,6 +10,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  PYTHON_VERSION: "3.12"
 
 jobs:
   build-and-test:
@@ -50,9 +51,10 @@ jobs:
       - name: Run Integration Tests
         run: |
           echo "Checking Python version..."
-          docker run --rm doc-toolchain:test python3 --version | grep "3.12"
+          docker run --rm doc-toolchain:test python3 --version | grep "${{ env.PYTHON_VERSION }}"
           echo "Checking DAPS version..."
           docker run --rm doc-toolchain:test daps --version
+          docker run --rm doc-toolchain:test rpm -q suse-xsl-stylesheets
 
       - name: Push image to GHCR
         if: github.event_name != 'pull_request' && success()
