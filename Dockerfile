@@ -89,11 +89,6 @@ RUN zypper -n install --allow-vendor-change --no-recommends -y \
 RUN \
   # Standardize python command
   if [ ! -L /usr/bin/python ]; then ln -sf /usr/bin/python3 /usr/bin/python; fi; \
-  # Ensure asciidoctor is linked (distro-defaults usually handle this)
-  if [ ! -x /usr/bin/asciidoctor ]; then \
-    ASCIIDOC_REAL=$(find /usr/bin -type f -name "asciidoctor*" | sort -V | tail -n 1); \
-    [ -n "$ASCIIDOC_REAL" ] && ln -sf "$ASCIIDOC_REAL" /usr/bin/asciidoctor; \
-  fi; \
   zypper clean --all; \
   xargs rpm --erase --nodeps < /root/rm-packages || true; \
   xargs rm -rf < /root/rm-files || true; \
