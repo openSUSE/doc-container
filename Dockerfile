@@ -7,7 +7,6 @@ FROM opensuse/leap:$RELEASE
 # Re-declare ARG after FROM
 ARG RELEASE=16.0
 ARG URL=https://download.opensuse.org/repositories
-ARG PYTHON_VERSION=3.12
 
 LABEL org.opencontainers.image.title="DAPS container for XML validation"
 LABEL org.opencontainers.image.description="Container daps-toolchain %PKG_VERSION%"
@@ -36,55 +35,64 @@ RUN zypper --non-interactive clean --all && \
     zypper -n ref
 
 # Add repositories. 
-# For Leap 16.0 (Tumbleweed-based), we use the Tumbleweed targets.
-# We use the generic 'python' repo instead of 'backports' for 16.0/TW.
+# Note: For Leap 16.0, the naming convention in OBS has moved from 
+# 'openSUSE_Leap_16.0' to just '16.0' as per reviewer feedback.
+# We explicitly add repo-oss back because the cleanup step above removes it.
+# We use -f (force) for DocTools to bypass caching issues with the ditaa package.
 RUN \
-  zypper ar ${URL}/Documentation:/Containers/openSUSE_Leap_15.6/ DocCont-Fallback && \
-  zypper ar ${URL}/Documentation:/Tools/openSUSE_Tumbleweed/ DocTools && \
-  zypper ar ${URL}/devel:/languages:/python/openSUSE_Tumbleweed/ Python-Languages && \
-  zypper --gpg-auto-import-keys ref
+  zypper ar https://download.opensuse.org/distribution/leap/${RELEASE}/repo/oss/ repo-oss && \
+  zypper ar ${URL}/Documentation:/Containers/openSUSE_Leap_${RELEASE}/ DocCont && \
+  zypper ar -f ${URL}/Documentation:/Tools/${RELEASE}/ DocTools && \
+  zypper --gpg-auto-import-keys ref -f
 
-RUN zypper --non-interactive install -y sgml-skel
+# sgml-skel needs --allow-vendor-change because it might exist in multiple repos
+RUN zypper --non-interactive install --allow-vendor-change -y sgml-skel
+
 # Explicitly install fonts - including the 'un-fonts' capability needed by suse-xsl-stylesheets
-RUN zypper --non-interactive install --no-recommends --no-confirm \
+# We use a retry loop to mitigate transient SSL/EOF network errors during the 16.0 bootstrap
+RUN for i in {1..5}; do \
+    zypper --non-interactive install --no-recommends --no-confirm \
     google-noto-sans-jp-regular-fonts google-noto-sans-jp-bold-fonts \
     google-noto-sans-sc-regular-fonts google-noto-sans-sc-bold-fonts \
     google-noto-sans-kr-regular-fonts google-noto-sans-kr-bold-fonts \
     google-noto-sans-tc-regular-fonts google-noto-sans-tc-bold-fonts \
     arabic-amiri-fonts \
     sil-charis-fonts gnu-free-fonts google-opensans-fonts dejavu-fonts google-poppins-fonts \
-    google-noto-serif-kr-fonts
+    google-noto-serif-kr-fonts && break || sleep 5; \
+    done
 
 # Toolchain and Python installation
-# 1. Test Repository Connectivity
+# 1. List repos
 RUN zypper lr -d
 
-# 2. Try to install just the basics first
-RUN zypper --non-interactive install --no-recommends --no-confirm -y \
+# 2. Install basics
+RUN zypper --non-interactive install --no-recommends -y \
     vim-small curl git gzip tar w3m jq rsvg-convert openssh-clients suse-fonts
 
-# 3. Try to install Python
-RUN zypper --non-interactive install --no-recommends --no-confirm -y \
-    python3.12 python312-pip || zypper --non-interactive install --no-recommends --no-confirm -y python3 python3-pip
+# 3. Install Python
+# Using generic python3 package as per Leap 16.0 defaults
+RUN zypper --non-interactive install --no-recommends --no-confirm -y python3 python3-pip
 
-# 4. Try to install the DAPS toolchain
-RUN zypper -n install --no-recommends -y ditaa geekodoc novdoc suse-xsl-stylesheets libreoffice-draw rubygem-asciidoctor || \
-    zypper -n install --no-recommends -y ditaa geekodoc novdoc suse-xsl-stylesheets libreoffice-draw ruby3.4-rubygem-asciidoctor || \
-    zypper -n install --no-recommends -y ditaa geekodoc novdoc suse-xsl-stylesheets libreoffice-draw ruby3.3-rubygem-asciidoctor
-
-# Force-install DAPS by fetching the RPM directly to bypass the Ruby 4.0 solver error.
-RUN DAPS_RPM=$(curl -sL https://download.opensuse.org/repositories/Documentation:/Tools/openSUSE_Tumbleweed/noarch/ | grep -o 'daps-[0-9][^"]*\.noarch\.rpm' | head -n 1) && \
-    rpm -ivh --nodeps https://download.opensuse.org/repositories/Documentation:/Tools/openSUSE_Tumbleweed/noarch/$DAPS_RPM
+# 4. Install the DAPS toolchain
+# We use symbolic capabilities and native 16.0 repositories.
+# We include "rubygem(asciidoctor)" to allow zypper to resolve the Ruby provider.
+# We use --allow-vendor-change to handle overlapping packages between OSS and DocTools.
+RUN zypper -n install --allow-vendor-change --no-recommends -y \
+    daps \
+    ditaa \
+    geekodoc \
+    novdoc \
+    suse-xsl-stylesheets \
+    "rubygem(asciidoctor)"
 
 # 5. Cleanup and Symlinks
 RUN \
-  PYTHON_BIN=$(ls /usr/bin/python3.[0-9]* 2>/dev/null | head -n 1); \
-  if [ -n "$PYTHON_BIN" ]; then ln -sf "$PYTHON_BIN" /usr/bin/python3; fi; \
-  ASCIIDOC_REAL=$(find /usr/bin -type f -name "asciidoctor*" | sort -V | tail -n 1); \
-  if [ -n "$ASCIIDOC_REAL" ]; then ln -sf "$ASCIIDOC_REAL" /usr/bin/asciidoctor; fi; \
+  # Standardize python command
+  if [ ! -L /usr/bin/python ]; then ln -sf /usr/bin/python3 /usr/bin/python; fi; \
+  # Ensure asciidoctor is linked (distro-defaults usually handle this)
   if [ ! -x /usr/bin/asciidoctor ]; then \
-    ASCIIDOC_GEM=$(find /usr/lib*/ruby/gems -name asciidoctor -type f -executable | head -n 1); \
-    if [ -n "$ASCIIDOC_GEM" ]; then ln -sf "$ASCIIDOC_GEM" /usr/bin/asciidoctor; fi; \
+    ASCIIDOC_REAL=$(find /usr/bin -type f -name "asciidoctor*" | sort -V | tail -n 1); \
+    [ -n "$ASCIIDOC_REAL" ] && ln -sf "$ASCIIDOC_REAL" /usr/bin/asciidoctor; \
   fi; \
   zypper clean --all; \
   xargs rpm --erase --nodeps < /root/rm-packages || true; \
