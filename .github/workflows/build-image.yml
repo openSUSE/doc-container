@@ -15,6 +15,17 @@ env:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    # Strategy matrix to build both slim and full stages
+    strategy:
+      fail-fast: false
+      matrix:
+        stage: [daps-slim, daps-full]
+        include:
+          - stage: daps-slim
+            tag_suffix: -slim
+          - stage: daps-full
+            tag_suffix: "" # Full image remains the default 'latest'
+
     permissions:
       contents: read
       packages: write
@@ -45,18 +56,26 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          # Target specific stage from Dockerfile
+          target: ${{ matrix.stage }}
           load: true 
-          tags: doc-toolchain:test
+          tags: doc-toolchain:${{ matrix.stage }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Run Integration Tests
         run: |
-          echo "Checking Python version..."
-          docker run --rm doc-toolchain:test python3 --version | grep "${{ env.PYTHON_VERSION }}"
-          echo "Checking DAPS version..."
-          docker run --rm doc-toolchain:test daps --version
-          docker run --rm doc-toolchain:test rpm -q suse-xsl-stylesheets
+          echo "Checking Python version in ${{ matrix.stage }}..."
+          docker run --rm doc-toolchain:${{ matrix.stage }} python3 --version | grep "${{ env.PYTHON_VERSION }}"
+          echo "Checking DAPS version in ${{ matrix.stage }}..."
+          docker run --rm doc-toolchain:${{ matrix.stage }} daps --version
+          
+          # Only check for stylesheets/Java if we are testing the full image
+          if [[ "${{ matrix.stage }}" == "daps-full" ]]; then
+            echo "Checking Full-only packages..."
+            docker run --rm doc-toolchain:${{ matrix.stage }} rpm -q suse-xsl-stylesheets
+            docker run --rm doc-toolchain:${{ matrix.stage }} java -version
+          fi
 
       - name: Push image to GHCR
         id: push
@@ -64,10 +83,12 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          # Target specific stage for push
+          target: ${{ matrix.stage }}
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest${{ matrix.tag_suffix }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}${{ matrix.tag_suffix }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

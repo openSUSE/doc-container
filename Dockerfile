@@ -10,9 +10,9 @@ ARG URL=https://download.opensuse.org/repositories
 # ---------------------------------------------------------
 FROM opensuse/leap:$RELEASE AS daps-slim
 
-# Re-declare ARG after FROM
-ARG RELEASE=16.0
-ARG URL=https://download.opensuse.org/repositories
+# Re-define ARG after FROM
+ARG RELEASE
+ARG URL
 
 LABEL org.opencontainers.image.title="DAPS slim container for XML validation"
 LABEL org.opencontainers.image.description="Container daps-toolchain %PKG_VERSION% (Slim)"
@@ -54,10 +54,7 @@ RUN \
     vim-small curl git gzip tar jq python3 python3-pip \
     daps geekodoc novdoc "rubygem(asciidoctor)" && \
     \
-  # 4. Symlinks
-  if [ ! -L /usr/bin/python ]; then ln -sf /usr/bin/python3 /usr/bin/python; fi; \
-  \
-  # 5. Cleanup
+  # 4. Cleanup
   # We rely on the rm-files list for directory pruning to keep the RUN block clean.
   zypper clean --all && \
   xargs rm -rf < /root/rm-files || true
@@ -67,9 +64,9 @@ RUN \
 # ---------------------------------------------------------
 FROM daps-slim AS daps-full
 
-# Re-declare ARG after FROM
-ARG RELEASE=16.0
-ARG URL=https://download.opensuse.org/repositories
+# Re-define ARG after FROM
+ARG RELEASE
+ARG URL
 
 LABEL org.opencontainers.image.title="DAPS full container for building"
 LABEL org.opencontainers.image.description="Container daps-toolchain %PKG_VERSION% (Full)"

@@ -13,6 +13,17 @@ env:
 jobs:
   build-and-push-image:
     runs-on: ubuntu-latest
+    # Strategy matrix to build and publish both slim and full stages
+    strategy:
+      fail-fast: false
+      matrix:
+        stage: [daps-slim, daps-full]
+        include:
+          - stage: daps-slim
+            tag_suffix: -slim
+          - stage: daps-full
+            tag_suffix: "" # Full image remains the default 'latest'
+
     # Sets the permissions granted to the GITHUB_TOKEN for the actions
     permissions:
       contents: read
@@ -36,13 +47,18 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # Customize tags to include the suffix based on the matrix stage
+          tags: |
+            type=raw,value=latest${{ matrix.tag_suffix }}
+            type=sha,suffix=${{ matrix.tag_suffix }}
 
       # This step builds the image and pushes it to GHCR
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
+          # Target specific stage from Dockerfile
+          target: ${{ matrix.stage }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
