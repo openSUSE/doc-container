@@ -6,7 +6,7 @@ This is an example of a Docker container for a doc CI. At the moment, it is a fu
 
 This project uses a multi-stage Docker build to provide two distinct images optimized for different CI workflows:
 
-1. **Slim Image (`daps-slim`)** - Optimized for fast XML validation. It contains the core DAPS toolchain and Asciidoctor without heavy fonts or Java dependencies.
+1. **Slim Image (`daps-slim`)** - Optimized for fast XML validation. It contains all direct dependencies of the `daps` package (without the building part).
 2. **Full Image (`daps-full`)** - The complete environment for building PDFs and HTML, including Java (for `ditaa`) and a full set of CJK fonts.
 
 ## Building the Images
