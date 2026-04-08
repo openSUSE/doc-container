@@ -55,15 +55,21 @@ RUN \
     daps geekodoc novdoc "rubygem(asciidoctor)" && \
     \
   # 4. Create a non-root user and set up permissive home for dynamic UIDs
-  # We use 777 permissions to allow any runtime UID (like 1002) to write to .cache/.config
+  # We pre-create the subdirectories here so the recursive chmod applies to them.
   groupadd --gid 1000 dapsuser && \
   useradd --uid 1000 --gid 1000 -m dapsuser && \
+  mkdir -p /home/dapsuser/.config/daps /home/dapsuser/.cache/daps && \
   chmod -R 777 /home/dapsuser && \
   \
   # 5. Cleanup
   # We rely on the rm-files list for directory pruning to keep the RUN block clean.
   zypper clean --all && \
   xargs rm -rf < /root/rm-files || true
+
+# Force HOME to the user directory so DAPS finds the config regardless of runtime UID
+ENV HOME=/home/dapsuser
+USER dapsuser
+WORKDIR /home/dapsuser
 
 # ---------------------------------------------------------
 # --- Stage 2: Full Toolchain ---
@@ -73,6 +79,9 @@ FROM daps-slim AS daps-full
 # Re-define ARG after FROM
 ARG RELEASE
 ARG URL
+
+# Switch to root to allow zypper installations in this stage
+USER root
 
 LABEL org.opencontainers.image.title="DAPS full container for building"
 LABEL org.opencontainers.image.description="Container daps-toolchain %PKG_VERSION% (Full)"
@@ -114,14 +123,13 @@ RUN \
 
 # Configure DAPS for the non-root user
 RUN \
-  mkdir --parents /home/dapsuser/.config/daps; \
   echo 'DOCBOOK5_RNG_URI="urn:x-suse:rng:v2:geekodoc-flat"' > /home/dapsuser/.config/daps/dapsrc && \
-  chmod -R 777 /home/dapsuser/.config
+  # Ensure the config file is readable/writable by the dynamic runtime user
+  chmod 666 /home/dapsuser/.config/daps/dapsrc
 
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV TERM=xterm-256color
-# Force HOME to the user directory so DAPS finds the config regardless of runtime UID
-ENV HOME=/home/dapsuser
+
+# Set default user back to dapsuser for the final image
 USER dapsuser
-WORKDIR /home/dapsuser
