@@ -51,10 +51,16 @@ RUN \
   # 3. Install Toolchain, Python, and Basics (Slim version)
   # We exclude heavy fonts and Java from this stage to keep it lightweight.
   zypper --non-interactive install --allow-vendor-change --no-recommends -y \
-    vim-small curl git gzip tar jq python3 python3-pip \
+    shadow vim-small curl git gzip tar jq python3 python3-pip \
     daps geekodoc novdoc "rubygem(asciidoctor)" && \
     \
-  # 4. Cleanup
+  # 4. Create a non-root user and set up permissive home for dynamic UIDs
+  # We use 777 permissions to allow any runtime UID (like 1002) to write to .cache/.config
+  groupadd --gid 1000 dapsuser && \
+  useradd --uid 1000 --gid 1000 -m dapsuser && \
+  chmod -R 777 /home/dapsuser && \
+  \
+  # 5. Cleanup
   # We rely on the rm-files list for directory pruning to keep the RUN block clean.
   zypper clean --all && \
   xargs rm -rf < /root/rm-files || true
@@ -106,10 +112,16 @@ RUN \
   xargs rm -rf < /root/rm-files || true && \
   rm -rf /root/rm-packages /root/rm-files
 
+# Configure DAPS for the non-root user
 RUN \
-  mkdir --parents /root/.config/daps; \
-  echo 'DOCBOOK5_RNG_URI="urn:x-suse:rng:v2:geekodoc-flat"' > /root/.config/daps/dapsrc
+  mkdir --parents /home/dapsuser/.config/daps; \
+  echo 'DOCBOOK5_RNG_URI="urn:x-suse:rng:v2:geekodoc-flat"' > /home/dapsuser/.config/daps/dapsrc && \
+  chmod -R 777 /home/dapsuser/.config
 
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV TERM=xterm-256color
+# Force HOME to the user directory so DAPS finds the config regardless of runtime UID
+ENV HOME=/home/dapsuser
+USER dapsuser
+WORKDIR /home/dapsuser
