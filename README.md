@@ -15,13 +15,13 @@ To ensure file ownership remains consistent between the container and your host,
 
 ```bash
 docker run --rm -u $(id -u):$(id -g) \
-  -v $(pwd):/doc \
+  -v $(pwd):/doc:z \
   -w /doc \
-  daps16.0:slim daps -d DC-example validate
+  daps-slim daps -d DC-example validate
 ```
 
 - **`-u $(id -u):$(id -g)`** - Maps your host user to the container so output files are not owned by root.
-- **`-v $(pwd):/doc`** - Mounts your current directory to the `/doc` path inside the container.
+- **`-v $(pwd):/doc:z`** - Mounts your current directory to the `/doc` path. The `:z` suffix ensures correct permissions/labeling on Linux hosts.
 - **`-w /doc`** - Sets the working directory to the mount point.
 
 ## Building the Images
@@ -31,17 +31,17 @@ You can build specific stages of the toolchain using the `--target` flag:
 ### Build the Slim (Validation) Image
 
 ```bash
-docker build --target daps-slim --build-arg RELEASE=16.0 -t daps16.0:slim .
+docker build --target daps-slim --build-arg RELEASE=16.0 -t daps-slim .
 ```
 
 ### Build the Full (Building) Image
 
 ```bash
-docker build --target daps-full --build-arg RELEASE=16.0 -t daps16.0:full .
+docker build --target daps-full --build-arg RELEASE=16.0 -t daps-full .
 ```
 
 ## Naming Convention
 
 When pushed to the registry, the images follow this naming convention:
-- `latest` - The full toolchain image.
-- `latest-slim` - The minimal validation image.
+- `latest` - The full toolchain image (`daps-full`).
+- `latest-slim` - The minimal validation image (`daps-slim`).
