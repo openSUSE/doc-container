@@ -51,13 +51,25 @@ RUN \
   # 3. Install Toolchain, Python, and Basics (Slim version)
   # We exclude heavy fonts and Java from this stage to keep it lightweight.
   zypper --non-interactive install --allow-vendor-change --no-recommends -y \
-    vim-small curl git gzip tar jq python3 python3-pip \
+    shadow vim-small curl git gzip tar jq python3 python3-pip \
     daps geekodoc novdoc "rubygem(asciidoctor)" && \
     \
-  # 4. Cleanup
+  # 4. Create a non-root user and set up permissive home for dynamic UIDs
+  # We pre-create the subdirectories here so the recursive chmod applies to them.
+  groupadd --gid 1000 dapsuser && \
+  useradd --uid 1000 --gid 1000 -m dapsuser && \
+  mkdir -p /home/dapsuser/.config/daps /home/dapsuser/.cache/daps && \
+  chmod -R 777 /home/dapsuser && \
+  \
+  # 5. Cleanup
   # We rely on the rm-files list for directory pruning to keep the RUN block clean.
   zypper clean --all && \
   xargs rm -rf < /root/rm-files || true
+
+# Force HOME to the user directory so DAPS finds the config regardless of runtime UID
+ENV HOME=/home/dapsuser
+USER dapsuser
+WORKDIR /home/dapsuser
 
 # ---------------------------------------------------------
 # --- Stage 2: Full Toolchain ---
@@ -67,6 +79,9 @@ FROM daps-slim AS daps-full
 # Re-define ARG after FROM
 ARG RELEASE
 ARG URL
+
+# Switch to root to allow zypper installations in this stage
+USER root
 
 LABEL org.opencontainers.image.title="DAPS full container for building"
 LABEL org.opencontainers.image.description="Container daps-toolchain %PKG_VERSION% (Full)"
@@ -106,10 +121,15 @@ RUN \
   xargs rm -rf < /root/rm-files || true && \
   rm -rf /root/rm-packages /root/rm-files
 
+# Configure DAPS for the non-root user
 RUN \
-  mkdir --parents /root/.config/daps; \
-  echo 'DOCBOOK5_RNG_URI="urn:x-suse:rng:v2:geekodoc-flat"' > /root/.config/daps/dapsrc
+  echo 'DOCBOOK5_RNG_URI="urn:x-suse:rng:v2:geekodoc-flat"' > /home/dapsuser/.config/daps/dapsrc && \
+  # Ensure the config file is readable/writable by the dynamic runtime user
+  chmod 666 /home/dapsuser/.config/daps/dapsrc
 
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV TERM=xterm-256color
+
+# Set default user back to dapsuser for the final image
+USER dapsuser

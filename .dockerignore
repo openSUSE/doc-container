@@ -1,0 +1,19 @@
+# Git
+.git
+.github
+
+# Build Artifacts
+build/
+out/
+*.pdf
+*.html
+*.log
+
+# Docker/CI
+Dockerfile
+.dockerignore
+.gitignore
+
+# Local DAPS caches if they exist
+.cache/
+.config/

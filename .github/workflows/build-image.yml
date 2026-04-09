@@ -65,8 +65,13 @@ jobs:
 
       - name: Run Integration Tests
         run: |
+          echo "Verifying non-root user in ${{ matrix.stage }}..."
+          # This confirms the 'USER dapsuser' directive is working
+          docker run --rm doc-toolchain:${{ matrix.stage }} whoami | grep "dapsuser"
+          
           echo "Checking Python version in ${{ matrix.stage }}..."
           docker run --rm doc-toolchain:${{ matrix.stage }} python3 --version | grep "${{ env.PYTHON_VERSION }}"
+          
           echo "Checking DAPS version in ${{ matrix.stage }}..."
           docker run --rm doc-toolchain:${{ matrix.stage }} daps --version
           
