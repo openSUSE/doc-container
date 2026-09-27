@@ -52,6 +52,7 @@ RUN \
   # We exclude heavy fonts and Java from this stage to keep it lightweight.
   zypper --non-interactive install --allow-vendor-change --no-recommends -y \
     shadow vim-small curl git gzip tar jq python3 python3-pip \
+    dia poppler-tools \
     daps geekodoc novdoc "rubygem(asciidoctor)" && \
     \
   # 4. Create a non-root user and set up permissive home for dynamic UIDs
