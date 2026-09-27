@@ -52,7 +52,6 @@ RUN \
   # We exclude heavy fonts and Java from this stage to keep it lightweight.
   zypper --non-interactive install --allow-vendor-change --no-recommends -y \
     shadow vim-small curl git gzip tar jq python3 python3-pip \
-    dia poppler-tools \
     daps geekodoc novdoc "rubygem(asciidoctor)" && \
     \
   # 4. Create a non-root user and set up permissive home for dynamic UIDs
@@ -112,6 +111,7 @@ RUN \
   # 2. Install Build-Specific Toolchain
   # Optimization: Explicitly use java-17-openjdk-headless to avoid GUI/X11 bloat for ditaa.
   zypper --non-interactive install --allow-vendor-change --no-recommends -y \
+    dia poppler-tools \
     w3m rsvg-convert openssh-clients suse-fonts \
     java-17-openjdk-headless ditaa suse-xsl-stylesheets && \
   \
