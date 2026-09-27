@@ -21,9 +21,7 @@ LABEL org.openbuildservice.disturl="%DISTURL%"
 LABEL org.opencontainers.image.created="%BUILDTIME%"
 LABEL org.opencontainers.image.authors="SUSE Documentation Team <doc-team@suse.com>"
 
-COPY rm-packages \
-     rm-files \
-       /root/
+COPY rm-files /root/
 
 # Optimization: Consolidate all setup, installation, and cleanup into a single RUN block.
 # This prevents temporary files, caches, and intermediate metadata from persisting in layers.
@@ -59,12 +57,11 @@ RUN \
   groupadd --gid 1000 dapsuser && \
   useradd --uid 1000 --gid 1000 -m dapsuser && \
   mkdir -p /home/dapsuser/.config/daps /home/dapsuser/.cache/daps && \
-  chmod -R 777 /home/dapsuser && \
-  \
+  chmod -R 1000:0 /home/dapsuser && chmod -R g+rwX /home/dapsuser && \
   # 5. Cleanup
   # We rely on the rm-files list for directory pruning to keep the RUN block clean.
   zypper clean --all && \
-  xargs rm -rf < /root/rm-files || true
+  xargs rm -rf < /root/rm-files || true 
 
 # Force HOME to the user directory so DAPS finds the config regardless of runtime UID
 ENV HOME=/home/dapsuser
@@ -90,6 +87,7 @@ LABEL org.opensuse.reference="registry.opensuse.org/documentation/containers/con
 # Optimization: Inherit from daps-slim and add heavy building components (Fonts + Java).
 # Per reviewer feedback, we must include bold versions of CJK fonts to ensure
 # correct PDF rendering, even if it increases the "Full" image size.
+COPY rm-packages /root/
 
 RUN \
   # Refresh keys for any new additions in this stage
@@ -125,12 +123,13 @@ RUN \
 # Configure DAPS for the non-root user
 RUN \
   echo 'DOCBOOK5_RNG_URI="urn:x-suse:rng:v2:geekodoc-flat"' > /home/dapsuser/.config/daps/dapsrc && \
+  chown 1000:0 /home/dapsuser/.config/daps/dapsrc && \
   # Ensure the config file is readable/writable by the dynamic runtime user
   chmod 666 /home/dapsuser/.config/daps/dapsrc
 
-ENV LANG=en_US.UTF-8
-ENV LC_ALL=en_US.UTF-8
-ENV TERM=xterm-256color
+ENV LANG=en_US.UTF-8 \
+    LC_ALL=en_US.UTF-8 \
+    TERM=xterm-256color
 
 # Set default user back to dapsuser for the final image
 USER dapsuser

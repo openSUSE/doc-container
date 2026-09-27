@@ -20,6 +20,14 @@ docker run --rm -u $(id -u):$(id -g) \
   daps-slim daps -d DC-example validate
 ```
 
+To validate a DC file, run this command:
+
+```bash
+docker run --rm -v "$(pwd):/doc:ro" --tmpfs /doc/build:rw,exec,uid=1000,gid=1000 \
+       -w /doc doc-toolchain:daps-slim \
+       daps -vv -d DC-FILE validate
+```
+
 - **`-u $(id -u):$(id -g)`** - Maps your host user to the container so output files are not owned by root.
 - **`-v $(pwd):/doc:z`** - Mounts your current directory to the `/doc` path. The `:z` suffix ensures correct permissions/labeling on Linux hosts.
 - **`-w /doc`** - Sets the working directory to the mount point.
